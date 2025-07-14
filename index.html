@@ -1,0 +1,387 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard Aziendale - Report Power BI</title>
+    <!-- Carica Tailwind CSS per uno styling rapido e responsivo -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Stile personalizzato per il font Inter */
+        body {
+            font-family: "Inter", sans-serif;
+        }
+        /* Assicura che il contenitore della dashboard occupi quasi tutta l'altezza della viewport e sia responsivo */
+        .powerbi-container {
+            position: relative;
+            width: 100%;
+            height: 90vh; /* Aumentato per occupare più spazio verticale */
+            min-height: 600px; /* Altezza minima aumentata */
+            display: none; /* Inizialmente nascosto, verrà mostrato dopo il login */
+            opacity: 0; /* Per la transizione di fade-in */
+            transition: opacity 0.5s ease-in-out;
+            max-width: 95%; /* Rimosso max-w-4xl per renderlo più ampio */
+            margin: 0 auto; /* Centra il contenitore */
+        }
+        .powerbi-iframe {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            border: none; /* Rimuove il bordo predefinito dell'iframe */
+            border-radius: 0.75rem; /* Bordi arrotondati come da istruzioni */
+        }
+        /* Stile per il loading spinner */
+        .loader {
+            border: 8px solid #f3f3f3; /* Grigio chiaro */
+            border-top: 8px solid #3498db; /* Blu */
+            border-radius: 50%;
+            width: 60px;
+            height: 60px;
+            animation: spin 2s linear infinite;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            margin-top: -30px;
+            margin-left: -30px;
+            z-index: 10;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* Stile per i container di login/registrazione con fade-in */
+        .auth-container {
+            opacity: 0;
+            transform: translateY(20px);
+            transition: opacity 0.5s ease-out, transform 0.5s ease-out;
+            display: none; /* Inizialmente nascosto */
+        }
+        .auth-container.show {
+            opacity: 1;
+            transform: translateY(0);
+            display: flex; /* Mostra quando ha la classe show */
+        }
+    </style>
+</head>
+<body class="bg-gray-100 text-gray-800">
+    <div class="min-h-screen flex flex-col items-center p-4 sm:p-6">
+        <!-- Header del mini-sito -->
+        <header class="w-full max-w-4xl bg-white shadow-lg rounded-xl p-4 mb-6 flex items-center justify-between">
+            <h1 id="dashboard-title" class="text-2xl sm:text-3xl font-bold text-gray-900">
+                Accedi alla Dashboard
+            </h1>
+            <div class="flex items-center space-x-4">
+                <!-- Pulsante per tornare al login (inizialmente nascosto) -->
+                <button id="back-to-login-button" class="hidden bg-gray-200 text-gray-700 py-2 px-4 rounded-md hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-gray-400 transition duration-300 text-sm">
+                    Torna al Login
+                </button>
+                <!-- Logo ITSAR in alto a destra -->
+                <img src="https://www.itsrizzoli.it/wp-content/uploads/2022/10/ITS-Logo-Positivo.png" alt="Logo ITSAR" class="h-10 rounded-md">
+            </div>
+        </header>
+
+        <!-- Form di Login -->
+        <main id="login-container" class="auth-container w-full max-w-md bg-white shadow-lg rounded-xl p-6 flex-col items-center justify-center">
+            <h2 class="text-xl font-semibold mb-4 text-gray-700">Accedi con le tue credenziali</h2>
+            <div class="w-full mb-3">
+                <input
+                    type="text"
+                    id="login-username-input"
+                    class="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="Nome Utente"
+                >
+            </div>
+            <div class="w-full mb-4">
+                <input
+                    type="password"
+                    id="login-password-input"
+                    class="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="Password"
+                >
+            </div>
+            <button
+                id="login-button"
+                class="w-full bg-blue-600 text-white py-3 px-4 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 transition duration-300"
+            >
+                Accedi
+            </button>
+            <p id="login-error-message" class="text-red-500 mt-3 text-sm hidden">Credenziali non valide. Riprova.</p>
+            <p class="mt-4 text-sm text-gray-600">Non hai un account? <a href="#" id="show-register-link" class="text-blue-600 hover:underline">Registrati qui</a></p>
+        </main>
+
+        <!-- Form di Registrazione -->
+        <main id="register-container" class="auth-container w-full max-w-md bg-white shadow-lg rounded-xl p-6 flex-col items-center justify-center">
+            <h2 class="text-xl font-semibold mb-4 text-gray-700">Registra un nuovo account</h2>
+            <div class="w-full mb-3">
+                <input
+                    type="text"
+                    id="register-username-input"
+                    class="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="Nome Utente"
+                >
+            </div>
+            <div class="w-full mb-3">
+                <input
+                    type="password"
+                    id="register-password-input"
+                    class="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="Password"
+                >
+            </div>
+            <div class="w-full mb-4">
+                <select
+                    id="register-role-select"
+                    class="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                    <option value="">Seleziona il tuo ruolo</option>
+                    <option value="governance">Governance</option>
+                    <option value="coordinamento">Coordinamento</option>
+                    <option value="altro">Altro (Studente/Docente)</option>
+                </select>
+            </div>
+            <button
+                id="register-button"
+                class="w-full bg-green-600 text-white py-3 px-4 rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-opacity-50 transition duration-300"
+            >
+                Registrati
+            </button>
+            <p id="register-error-message" class="text-red-500 mt-3 text-sm hidden"></p>
+            <p id="register-success-message" class="text-green-600 mt-3 text-sm hidden">Registrazione avvenuta con successo! Accedi.</p>
+            <p class="mt-4 text-sm text-gray-600">Hai già un account? <a href="#" id="show-login-link" class="text-blue-600 hover:underline">Accedi qui</a></p>
+        </main>
+
+        <!-- Contenitore principale del report Power BI (inizialmente nascosto) -->
+        <main id="powerbi-report-container" class="w-full bg-white shadow-lg rounded-xl p-4 relative flex items-center justify-center powerbi-container">
+            <!-- Loading spinner -->
+            <div id="loader" class="loader"></div>
+
+            <!-- Iframe per incorporare il report Power BI -->
+            <iframe
+                id="powerbi-report"
+                title="Report Power BI"
+                class="powerbi-iframe opacity-0 transition-opacity duration-500"
+                src="" <!-- L'URL verrà impostato tramite JavaScript -->
+                allowFullScreen="true"
+            ></iframe>
+        </main>
+
+        <!-- Script per gestire il login, la registrazione e il caricamento dell'iframe -->
+        <script>
+            document.addEventListener('DOMContentLoaded', function() {
+                // Elementi del Login
+                const loginUsernameInput = document.getElementById('login-username-input');
+                const loginPasswordInput = document.getElementById('login-password-input');
+                const loginButton = document.getElementById('login-button');
+                const loginErrorMessage = document.getElementById('login-error-message');
+                const showRegisterLink = document.getElementById('show-register-link');
+
+                // Elementi della Registrazione
+                const registerUsernameInput = document.getElementById('register-username-input');
+                const registerPasswordInput = document.getElementById('register-password-input');
+                const registerRoleSelect = document.getElementById('register-role-select');
+                const registerButton = document.getElementById('register-button');
+                const registerErrorMessage = document.getElementById('register-error-message');
+                const registerSuccessMessage = document.getElementById('register-success-message');
+                const showLoginLink = document.getElementById('show-login-link');
+
+                // Contenitori principali
+                const loginContainer = document.getElementById('login-container');
+                const registerContainer = document.getElementById('register-container');
+                const powerbiReportContainer = document.getElementById('powerbi-report-container');
+                const powerbiIframe = document.getElementById('powerbi-report');
+                const loader = document.getElementById('loader');
+                const dashboardTitle = document.getElementById('dashboard-title');
+                const backToLoginButton = document.getElementById('back-to-login-button');
+
+                // Database utenti hardcoded
+                const users = [
+                    { username: "Riccardo", password: "123", role: "coordinamento" }, // Ruolo aggiornato
+                    { username: "Maria", password: "456", role: "governance" }, // Ruolo aggiornato
+                    { username: "Giovanni", password: "abc", role: "altro" } 
+                ];
+
+                // URL dei report Power BI per i diversi ruoli
+                const powerBiUrls = {
+                    governance: "https://app.powerbi.com/reportEmbed?reportId=bf85bf73-d3c9-41d7-a728-e05b9e3a943c&appId=0821eaf6-587f-41f1-bfbe-3df79fde79d4&autoAuth=true&ctid=4b34741a-3a0b-45ba-ac62-ac0982ed73e7", 
+                    coordinamento: "https://app.powerbi.com/reportEmbed?reportId=89030b20-b672-4c4f-8f2d-d2aa679bec35&appId=af2014ce-fa73-4430-9e16-e0984b0d3ead&autoAuth=true&ctid=4b34741a-3a0b-45ba-ac62-ac0982ed73e7", 
+                    altro: "https://app.powerbi.com/reportEmbed?reportId=8b35b2e7-2644-46c5-8012-a01c84b6e6c3&appId=9141f9a2-0702-49f9-832f-e4cfb0faaa7a&autoAuth=true&ctid=4b34741a-3a0b-45ba-ac62-ac0982ed73e7"
+                };
+
+                // Funzione per mostrare un messaggio temporaneo (errore o successo)
+                function showTemporaryMessage(element, message, isError = true) {
+                    element.textContent = message;
+                    element.classList.remove('hidden');
+                    if (isError) {
+                        element.classList.remove('text-green-600');
+                        element.classList.add('text-red-500');
+                    } else {
+                        element.classList.remove('text-red-500');
+                        element.classList.add('text-green-600');
+                    }
+                    setTimeout(() => {
+                        element.classList.add('hidden');
+                    }, 3000);
+                }
+
+                // Funzione per mostrare il report Power BI
+                function showPowerBIReport(role) {
+                    const url = powerBiUrls[role.toLowerCase()];
+                    if (url) {
+                        // Nasconde i form di autenticazione
+                        loginContainer.classList.remove('show');
+                        loginContainer.style.display = 'none';
+                        registerContainer.classList.remove('show');
+                        registerContainer.style.display = 'none';
+
+                        // Mostra il contenitore del report con animazione
+                        powerbiReportContainer.style.display = 'flex'; // Ripristinato a flex per centrare il loader
+                        powerbiReportContainer.offsetWidth; // Forza il reflow
+                        powerbiReportContainer.classList.add('opacity-100');
+
+                        loader.style.display = 'block'; // Mostra il loader
+                        backToLoginButton.classList.remove('hidden'); // Mostra il pulsante "Torna al Login"
+
+                        // Aggiorna il titolo della dashboard
+                        dashboardTitle.textContent = `Dashboard ${role.charAt(0).toUpperCase() + role.slice(1)}`;
+
+                        // Imposta l'URL dell'iframe e gestisce il caricamento
+                        powerbiIframe.src = url;
+                        
+                        powerbiIframe.onload = function() {
+                            loader.style.display = 'none';
+                            powerbiIframe.classList.remove('opacity-0');
+                            powerbiIframe.classList.add('opacity-100');
+                        };
+
+                        powerbiIframe.onerror = function() {
+                            console.error('Errore durante il caricamento del report Power BI.');
+                            loader.style.display = 'none';
+                            powerbiReportContainer.classList.remove('opacity-100');
+                            powerbiReportContainer.style.display = 'none';
+                            backToLoginButton.classList.add('hidden');
+                            showLogin(); // Torna al login in caso di errore di caricamento del report
+                            showTemporaryMessage(loginErrorMessage, 'Impossibile caricare il report. Riprova.', true);
+                        };
+
+                    } else {
+                        // Gestione di ruoli senza URL specifico
+                        showLogin(); // Torna al login
+                        showTemporaryMessage(loginErrorMessage, 'Il tuo ruolo non ha accesso a questa dashboard.', true);
+                    }
+                }
+
+                // Funzione per gestire il tentativo di login
+                function handleLogin() {
+                    const username = loginUsernameInput.value.trim();
+                    const password = loginPasswordInput.value.trim();
+
+                    const foundUser = users.find(user => user.username.toLowerCase() === username.toLowerCase() && user.password === password);
+
+                    if (foundUser) {
+                        showPowerBIReport(foundUser.role);
+                    } else {
+                        showTemporaryMessage(loginErrorMessage, 'Credenziali non valide. Riprova.', true);
+                    }
+                }
+
+                // Funzione per gestire la registrazione
+                function handleRegistration() {
+                    const username = registerUsernameInput.value.trim();
+                    const password = registerPasswordInput.value.trim();
+                    const role = registerRoleSelect.value;
+
+                    if (!username || !password || !role) {
+                        showTemporaryMessage(registerErrorMessage, 'Tutti i campi sono obbligatori.', true);
+                        return;
+                    }
+
+                    if (users.some(user => user.username.toLowerCase() === username.toLowerCase())) {
+                        showTemporaryMessage(registerErrorMessage, 'Nome utente già esistente.', true);
+                        return;
+                    }
+
+                    users.push({ username, password, role });
+                    showTemporaryMessage(registerSuccessMessage, 'Registrazione avvenuta con successo! Accedi.', false);
+                    registerUsernameInput.value = '';
+                    registerPasswordInput.value = '';
+                    registerRoleSelect.value = '';
+                    showLogin(); // Torna al login dopo la registrazione
+                }
+
+                // Funzioni per mostrare/nascondere i form
+                function showLogin() {
+                    powerbiReportContainer.classList.remove('opacity-100');
+                    powerbiReportContainer.style.display = 'none';
+                    powerbiIframe.src = "";
+                    backToLoginButton.classList.add('hidden');
+
+                    registerContainer.classList.remove('show');
+                    registerContainer.style.display = 'none';
+                    loginContainer.style.display = 'flex';
+                    loginContainer.offsetWidth;
+                    loginContainer.classList.add('show');
+                    loginUsernameInput.focus();
+                    dashboardTitle.textContent = "Accedi alla Dashboard";
+                }
+
+                function showRegister() {
+                    loginContainer.classList.remove('show');
+                    loginContainer.style.display = 'none';
+                    registerContainer.style.display = 'flex';
+                    registerContainer.offsetWidth;
+                    registerContainer.classList.add('show');
+                    registerUsernameInput.focus();
+                }
+
+                // Event Listeners
+                loginButton.addEventListener('click', handleLogin);
+                loginUsernameInput.addEventListener('keypress', function(event) {
+                    if (event.key === 'Enter') {
+                        loginPasswordInput.focus();
+                    }
+                });
+                loginPasswordInput.addEventListener('keypress', function(event) {
+                    if (event.key === 'Enter') {
+                        handleLogin();
+                    }
+                });
+
+                registerButton.addEventListener('click', handleRegistration);
+                registerUsernameInput.addEventListener('keypress', function(event) {
+                    if (event.key === 'Enter') {
+                        registerPasswordInput.focus();
+                    }
+                });
+                registerPasswordInput.addEventListener('keypress', function(event) {
+                    if (event.key === 'Enter') {
+                        registerRoleSelect.focus();
+                    }
+                });
+                registerRoleSelect.addEventListener('keypress', function(event) {
+                    if (event.key === 'Enter') {
+                        handleRegistration();
+                    }
+                });
+
+                showRegisterLink.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    showRegister();
+                });
+                showLoginLink.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    showLogin();
+                });
+
+                backToLoginButton.addEventListener('click', showLogin);
+
+                // Inizializza mostrando il form di login
+                showLogin();
+            });
+        </script>
+    </div>
+</body>
+</html>
